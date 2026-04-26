@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE `users` MODIFY COLUMN `openId` varchar(64) NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3wKQiSqrPN67m7B.4d5bbfb3d938 --database iBKAWjX8tWqzHTj4SwcNCQ --execute ALTER TABLE `users` MODIFY COLUMN `openId` varchar(64) NOT NULL;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1265 (01000) at line 1: Data truncated for column 'openid' at row 1"
+  ]
+}

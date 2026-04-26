@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO users (name, email, passwordHash, loginMethod, role, createdAt, updatedAt, lastSignedIn) \nVALUES ('ONE LEGEND Admin', 'onelegend', 'c0fc758e40128d4da543358162b883186accf7b013390c00d47ec7152cc65fa7', 'password', 'admin', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE role = 'admin', passwordHash = 'c0fc758e40128d4da543358162b883186accf7b013390c00d47ec7152cc65fa7';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3wKQiSqrPN67m7B.4d5bbfb3d938 --database iBKAWjX8tWqzHTj4SwcNCQ --execute INSERT INTO users (name, email, passwordHash, loginMethod, role, createdAt, updatedAt, lastSignedIn) \nVALUES ('ONE LEGEND Admin', 'onelegend', 'c0fc758e40128d4da543358162b883186accf7b013390c00d47ec7152cc65fa7', 'password', 'admin', NOW(), NOW(), NOW())\nON DUPLICATE KEY UPDATE role = 'admin', passwordHash = 'c0fc758e40128d4da543358162b883186accf7b013390c00d47ec7152cc65fa7';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 119
+}

@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `scheduled_tasks` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`name` varchar(255) NOT NULL,\n\t`cardsList` text NOT NULL,\n\t`proxy` varchar(255),\n\t`schedule` varchar(100) NOT NULL,\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`lastRun` timestamp,\n\t`nextRun` timestamp,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `scheduled_tasks_id` PRIMARY KEY(`id`)\n);\n\nALTER TABLE `users` MODIFY COLUMN `openId` varchar(64);\nALTER TABLE `users` ADD `passwordHash` varchar(255);\nALTER TABLE `users` ADD CONSTRAINT `users_email_unique` UNIQUE(`email`);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3wKQiSqrPN67m7B.4d5bbfb3d938 --database iBKAWjX8tWqzHTj4SwcNCQ --execute CREATE TABLE `scheduled_tasks` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`userId` int NOT NULL,\n\t`name` varchar(255) NOT NULL,\n\t`cardsList` text NOT NULL,\n\t`proxy` varchar(255),\n\t`schedule` varchar(100) NOT NULL,\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`lastRun` timestamp,\n\t`nextRun` timestamp,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `scheduled_tasks_id` PRIMARY KEY(`id`)\n);\n\nALTER TABLE `users` MODIFY COLUMN `openId` varchar(64);\nALTER TABLE `users` ADD `passwordHash` varchar(255);\nALTER TABLE `users` ADD CONSTRAINT `users_email_unique` UNIQUE(`email`);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 928
+}
