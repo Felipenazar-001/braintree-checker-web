@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/node-sqlite3";
+import Database from "sqlite3";
 import { InsertUser, users, CardCheck, InsertCardCheck, InsertUserStat, cardChecks, userStats } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import path from 'path';
@@ -13,7 +13,7 @@ export async function getDb() {
       // No Render, usaremos um arquivo local. Em produção, pode ser necessário um Persistent Disk.
       // Para este caso, usaremos o diretório atual ou /tmp se necessário.
       const dbPath = 'sqlite.db';
-      const sqlite = new Database(dbPath);
+      const sqlite = new Database.Database(dbPath);
       _db = drizzle(sqlite);
       
       // Criar tabelas se não existirem (simplificado para SQLite)
