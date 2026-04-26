@@ -21,7 +21,15 @@ function verifyPassword(password: string, hash: string): boolean {
 export const authRouter = router({
   me: publicProcedure.query((opts) => opts.ctx.user),
 
-  logout: publicProcedure.mutation(({ ctx }) => {
+  logout: publicProcedure.mutation(async ({ ctx }) => {
+    if (ctx.user) {
+      const { upsertUser } = await import("./db");
+      await upsertUser({
+        openId: ctx.user.openId,
+        isOnline: false,
+        lastActiveAt: new Date(),
+      });
+    }
     const cookieOptions = getSessionCookieOptions(ctx.req);
     ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
     return { success: true } as const;
@@ -81,6 +89,16 @@ export const authRouter = router({
         // Reset rate limit on successful login
         resetRateLimit(rateLimitKey);
 
+        // Update user login stats
+        const { upsertUser } = await import("./db");
+        await upsertUser({
+          openId: user.openId,
+          lastSignedIn: new Date(),
+          loginCount: (user.loginCount || 0) + 1,
+          isOnline: true,
+          lastActiveAt: new Date(),
+        });
+
         // Create session with JWT (browser session only - expires when browser closes)
         const cookieOptions = getSessionCookieOptions(ctx.req);
         const { sdk } = await import("./_core/sdk");
@@ -95,7 +113,12 @@ export const authRouter = router({
 
         return {
           success: true,
-          user,
+          user: {
+            ...user,
+            isOnline: true,
+            loginCount: (user.loginCount || 0) + 1,
+            lastSignedIn: new Date(),
+          },
         };
       } catch (error) {
         console.error("Login error:", error);

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, Trash2, Edit2, LogOut, X } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit2, LogOut, X, Users, Globe, Key } from "lucide-react";
 import { useLocation } from "wouter";
 
 const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663390191466/iBKAWjX8tWqzHTj4SwcNCQ/IMG_5722_9f2f7c0c.png";
@@ -22,7 +22,14 @@ export default function AdminPanel() {
 
   const listUsersQuery = trpc.admin.listUsers.useQuery(undefined, {
     enabled: user?.role === "admin",
+    refetchInterval: 10000, // Refresh every 10 seconds to see online status
   });
+  
+  const statsQuery = trpc.admin.getStats.useQuery(undefined, {
+    enabled: user?.role === "admin",
+    refetchInterval: 10000,
+  });
+
   const createUserMutation = trpc.admin.createUser.useMutation();
   const updateUserMutation = trpc.admin.updateUser.useMutation();
   const deleteUserMutation = trpc.admin.deleteUser.useMutation();
@@ -61,6 +68,7 @@ export default function AdminPanel() {
         setNewUser({ name: "", username: "", password: "", role: "user" });
         setShowCreateForm(false);
         listUsersQuery.refetch();
+        statsQuery.refetch();
       } else {
         setMessage(result.error || "Erro ao criar usuário");
         setMessageType("error");
@@ -101,6 +109,7 @@ export default function AdminPanel() {
         setMessage(result.message || "Usuário deletado");
         setMessageType("success");
         listUsersQuery.refetch();
+        statsQuery.refetch();
       } else {
         setMessage(result.error || "Erro ao deletar");
         setMessageType("error");
@@ -129,19 +138,68 @@ export default function AdminPanel() {
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold">ONE LEGEND - Painel Admin</h1>
-              <p className="text-purple-100">Gerenciamento de Usuários</p>
+              <p className="text-purple-100">Gerenciamento de Usuários e Estatísticas</p>
             </div>
-            <Button
-              onClick={handleLogout}
-              className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Sair
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setLocation("/")}
+                variant="outline"
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                Voltar ao Checker
+              </Button>
+              <Button
+                onClick={handleLogout}
+                className="bg-red-600 hover:bg-red-700 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card className="bg-slate-800 border-purple-500/30 text-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Total de Usuários
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-purple-400">
+                  {statsQuery.isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : statsQuery.data?.totalUsers || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-800 border-green-500/30 text-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> Usuários Online
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-400">
+                  {statsQuery.isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : statsQuery.data?.onlineUsers || 0}
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-slate-800 border-blue-500/30 text-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-400 flex items-center gap-2">
+                  <Key className="w-4 h-4" /> Total de Logins
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-400">
+                  {statsQuery.isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : statsQuery.data?.totalLogins || 0}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {message && (
             <div
               className={`mb-6 p-4 rounded-lg ${
@@ -249,7 +307,7 @@ export default function AdminPanel() {
             <CardHeader>
               <CardTitle className="text-purple-400">Usuários Cadastrados</CardTitle>
               <CardDescription className="text-slate-400">
-                Total: {listUsersQuery.data?.length || 0} usuários
+                Gerencie as contas de acesso ao sistema
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -262,55 +320,57 @@ export default function AdminPanel() {
                   <table className="w-full text-sm">
                     <thead className="border-b border-slate-700">
                       <tr>
+                        <th className="text-left py-3 px-4 text-slate-300">Status</th>
                         <th className="text-left py-3 px-4 text-slate-300">Nome</th>
                         <th className="text-left py-3 px-4 text-slate-300">Username</th>
                         <th className="text-left py-3 px-4 text-slate-300">Role</th>
-                        <th className="text-left py-3 px-4 text-slate-300">Criado em</th>
+                        <th className="text-left py-3 px-4 text-slate-300">Logins</th>
+                        <th className="text-left py-3 px-4 text-slate-300">Último Acesso</th>
                         <th className="text-left py-3 px-4 text-slate-300">Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {listUsersQuery.data.map((u) => (
                         <tr key={u.id} className="border-b border-slate-700 hover:bg-slate-700/50">
-                          <td className="py-3 px-4">{u.name}</td>
-                          <td className="py-3 px-4 font-mono text-sm">{u.email}</td>
                           <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
-                                u.role === "admin"
-                                  ? "bg-red-500/20 text-red-300"
-                                  : "bg-blue-500/20 text-blue-300"
-                              }`}
-                            >
-                              {u.role === "admin" ? "Admin" : "Usuário"}
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`} />
+                              <span className="text-xs text-slate-400">{u.isOnline ? 'Online' : 'Offline'}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 font-medium">{u.name}</td>
+                          <td className="py-3 px-4 text-slate-400">{u.email}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-slate-700 text-slate-300'}`}>
+                              {u.role === 'admin' ? 'Admin' : 'User'}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-xs text-slate-400">
-                            {new Date(u.createdAt).toLocaleDateString("pt-BR")}
+                          <td className="py-3 px-4 text-slate-400">{u.loginCount || 0}</td>
+                          <td className="py-3 px-4 text-slate-400">
+                            {u.lastSignedIn ? new Date(u.lastSignedIn).toLocaleString('pt-BR') : 'Nunca'}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-2">
-                              {u.id !== user?.id && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingId(u.id);
-                                    setEditData({ name: u.name || "", password: "", role: u.role as "user" | "admin" });
-                                  }}
-                                  className="bg-blue-600 hover:bg-blue-700 h-8 px-2"
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                </Button>
-                              )}
-                              {u.id !== user?.id && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleDeleteUser(u.id)}
-                                  className="bg-red-600 hover:bg-red-700 h-8 px-2"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingId(u.id);
+                                  setEditData({ name: u.name || "", password: "", role: u.role as "user" | "admin" });
+                                }}
+                                className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                disabled={u.id === user?.id}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -319,78 +379,65 @@ export default function AdminPanel() {
                   </table>
                 </div>
               ) : (
-                <p className="text-slate-400 text-center py-8">Nenhum usuário cadastrado</p>
+                <div className="text-center py-8 text-slate-500">Nenhum usuário encontrado.</div>
               )}
             </CardContent>
           </Card>
-
-          {editingId && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <Card className="bg-slate-800 border-purple-500/30 text-white w-full max-w-md">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-purple-400">Editar Usuário</CardTitle>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setEditingId(null)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleUpdateUser(editingId);
-                    }}
-                    className="space-y-4"
-                  >
-                    <Input
-                      placeholder="Nome"
-                      value={editData.name}
-                      onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                      className="bg-slate-700 border-slate-600 text-white"
-                    />
-                    <Input
-                      type="password"
-                      placeholder="Nova senha (deixe em branco para manter)"
-                      value={editData.password}
-                      onChange={(e) => setEditData({ ...editData, password: e.target.value })}
-                      className="bg-slate-700 border-slate-600 text-white"
-                    />
-                    <select
-                      value={editData.role}
-                      onChange={(e) => setEditData({ ...editData, role: e.target.value as "user" | "admin" })}
-                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2"
-                    >
-                      <option value="user">Usuário</option>
-                      <option value="admin">Administrador</option>
-                    </select>
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        disabled={updateUserMutation.isPending}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                      >
-                        {updateUserMutation.isPending ? "Salvando..." : "Salvar"}
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        variant="outline"
-                        className="flex-1 border-slate-600 text-slate-300"
-                      >
-                        Cancelar
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="bg-slate-800 border-purple-500/30 text-white w-full max-w-md">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-purple-400">Editar Usuário</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-slate-400 mb-1 block">Nome</label>
+                  <Input
+                    value={editData.name}
+                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                    className="bg-slate-700 border-slate-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-400 mb-1 block">Nova Senha (deixe em branco para manter)</label>
+                  <Input
+                    type="password"
+                    value={editData.password}
+                    onChange={(e) => setEditData({ ...editData, password: e.target.value })}
+                    className="bg-slate-700 border-slate-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-400 mb-1 block">Role</label>
+                  <select
+                    value={editData.role}
+                    onChange={(e) => setEditData({ ...editData, role: e.target.value as "user" | "admin" })}
+                    className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2"
+                  >
+                    <option value="user">Usuário</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+                <Button
+                  onClick={() => handleUpdateUser(editingId)}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  disabled={updateUserMutation.isPending}
+                >
+                  {updateUserMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

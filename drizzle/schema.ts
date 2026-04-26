@@ -21,6 +21,9 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  loginCount: int("loginCount").default(0).notNull(),
+  isOnline: boolean("isOnline").default(false).notNull(),
+  lastActiveAt: timestamp("lastActiveAt").defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;

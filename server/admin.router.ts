@@ -11,6 +11,43 @@ function hashPassword(password: string): string {
 }
 
 export const adminRouter = router({
+  // Get admin stats
+  getStats: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user?.role !== "admin") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Apenas administradores podem acessar",
+      });
+    }
+
+    const db = await getDb();
+    if (!db) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Database not available",
+      });
+    }
+
+    try {
+      const allUsers = await db.select().from(users);
+      const totalUsers = allUsers.length;
+      const onlineUsers = allUsers.filter(u => u.isOnline).length;
+      const totalLogins = allUsers.reduce((acc, u) => acc + (u.loginCount || 0), 0);
+
+      return {
+        totalUsers,
+        onlineUsers,
+        totalLogins,
+      };
+    } catch (error) {
+      console.error("Error getting admin stats:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Erro ao obter estatísticas",
+      });
+    }
+  }),
+
   // List all users
   listUsers: protectedProcedure.query(async ({ ctx }) => {
     if (ctx.user?.role !== "admin") {
@@ -30,7 +67,7 @@ export const adminRouter = router({
 
     try {
       const allUsers = await db.select().from(users);
-      return allUsers.map((user) => ({
+        return allUsers.map((user) => ({
         id: user.id,
         name: user.name,
         email: user.email,
@@ -38,6 +75,9 @@ export const adminRouter = router({
         role: user.role,
         createdAt: user.createdAt,
         lastSignedIn: user.lastSignedIn,
+        loginCount: user.loginCount,
+        isOnline: user.isOnline,
+        lastActiveAt: user.lastActiveAt,
       }));
     } catch (error) {
       console.error("Error listing users:", error);
