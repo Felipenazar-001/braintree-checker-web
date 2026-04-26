@@ -49,6 +49,7 @@ async function startServer() {
         await db.insert(users).values({
           openId: nanoid(),
           name: adminName,
+          email: adminName, // Also set email to 'admin' for consistency
           passwordHash: passwordHash,
           role: "admin",
           loginMethod: "password",
@@ -59,8 +60,8 @@ async function startServer() {
         } as any);
         console.log("[Init] Admin user created successfully");
       } else {
-        await db.update(users).set({ passwordHash } as any).where(eq(users.name, adminName));
-        console.log("[Init] Admin user already exists, password updated");
+        await db.update(users).set({ passwordHash, email: adminName } as any).where(eq(users.name, adminName));
+        console.log("[Init] Admin user already exists, password and email updated");
       }
     }
   } catch (error) {

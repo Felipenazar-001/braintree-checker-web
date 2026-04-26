@@ -115,11 +115,11 @@ export const adminRouter = router({
       }
 
       try {
-        // Check if username already exists
+        // Check if username already exists (using name field as username)
         const existingUser = await db
           .select()
           .from(users)
-          .where(eq(users.email, input.username))
+          .where(eq(users.name, input.username))
           .limit(1);
 
         if (existingUser.length > 0) {
@@ -135,12 +135,16 @@ export const adminRouter = router({
         const openId = nanoid();
         await db.insert(users).values({
           openId,
-          email: input.username,
-          name: input.name,
+          email: input.username, // Store username in email field too for compatibility
+          name: input.username,  // Use username as the name/login field
           passwordHash,
           loginMethod: "password",
           role: input.role,
-        });
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastSignedIn: new Date(),
+          lastActiveAt: new Date(),
+        } as any);
 
         return {
           success: true,
