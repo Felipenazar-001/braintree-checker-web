@@ -12,7 +12,7 @@ export async function getDb() {
     try {
       // No Render, usaremos um arquivo local. Em produção, pode ser necessário um Persistent Disk.
       // Para este caso, usaremos o diretório atual ou /tmp se necessário.
-      const dbPath = process.env.NODE_ENV === 'production' ? '/opt/render/project/src/sqlite.db' : 'sqlite.db';
+      const dbPath = 'sqlite.db';
       const sqlite = new Database(dbPath);
       _db = drizzle(sqlite);
       
