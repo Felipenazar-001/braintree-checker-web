@@ -1,17 +1,59 @@
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { eq, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import Database from "better-sqlite3";
 import { InsertUser, users, CardCheck, InsertCardCheck, InsertUserStat, cardChecks, userStats } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import path from 'path';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // No Render, usaremos um arquivo local. Em produção, pode ser necessário um Persistent Disk.
+      // Para este caso, usaremos o diretório atual ou /tmp se necessário.
+      const dbPath = process.env.NODE_ENV === 'production' ? '/opt/render/project/src/sqlite.db' : 'sqlite.db';
+      const sqlite = new Database(dbPath);
+      _db = drizzle(sqlite);
+      
+      // Criar tabelas se não existirem (simplificado para SQLite)
+      sqlite.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          openId TEXT UNIQUE NOT NULL,
+          name TEXT,
+          email TEXT UNIQUE,
+          passwordHash TEXT,
+          loginMethod TEXT,
+          role TEXT DEFAULT 'user' NOT NULL,
+          createdAt INTEGER NOT NULL,
+          updatedAt INTEGER NOT NULL,
+          lastSignedIn INTEGER NOT NULL,
+          loginCount INTEGER DEFAULT 0 NOT NULL,
+          isOnline INTEGER DEFAULT 0 NOT NULL,
+          lastActiveAt INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS card_checks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId INTEGER NOT NULL,
+          cardNumber TEXT NOT NULL,
+          status TEXT NOT NULL,
+          response TEXT,
+          createdAt INTEGER NOT NULL,
+          FOREIGN KEY (userId) REFERENCES users(id)
+        );
+        CREATE TABLE IF NOT EXISTS user_stats (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId INTEGER UNIQUE NOT NULL,
+          totalChecks INTEGER DEFAULT 0 NOT NULL,
+          liveCount INTEGER DEFAULT 0 NOT NULL,
+          dieCount INTEGER DEFAULT 0 NOT NULL,
+          updatedAt INTEGER NOT NULL,
+          FOREIGN KEY (userId) REFERENCES users(id)
+        );
+      `);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect/initialize SQLite:", error);
       _db = null;
     }
   }
@@ -30,59 +72,25 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
-
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
+    const existing = await db.select().from(users).where(eq(users.openId, user.openId)).limit(1);
+    
+    const now = new Date();
+    const values = {
+      ...user,
+      updatedAt: now,
     };
 
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
+    if (existing.length > 0) {
+      await db.update(users).set(values).where(eq(users.openId, user.openId));
+    } else {
+      if (!values.role && user.openId === ENV.ownerOpenId) {
+        values.role = 'admin';
+      }
+      if (!values.createdAt) values.createdAt = now;
+      if (!values.lastSignedIn) values.lastSignedIn = now;
+      if (!values.lastActiveAt) values.lastActiveAt = now;
+      await db.insert(users).values(values as any);
     }
-    if (user.loginCount !== undefined) {
-      values.loginCount = user.loginCount;
-      updateSet.loginCount = user.loginCount;
-    }
-    if (user.isOnline !== undefined) {
-      values.isOnline = user.isOnline;
-      updateSet.isOnline = user.isOnline;
-    }
-    if (user.lastActiveAt !== undefined) {
-      values.lastActiveAt = user.lastActiveAt;
-      updateSet.lastActiveAt = user.lastActiveAt;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
-    });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -97,7 +105,6 @@ export async function getUserByOpenId(openId: string) {
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -107,9 +114,9 @@ export async function createCardCheck(check: InsertCardCheck): Promise<CardCheck
     throw new Error("Database not available");
   }
 
-  const result = await db.insert(cardChecks).values(check);
-  const checkId = result[0].insertId;
-  const inserted = await db.select().from(cardChecks).where(eq(cardChecks.id, checkId as number)).limit(1);
+  const result = await db.insert(cardChecks).values(check as any);
+  const checkId = result.lastInsertRowid;
+  const inserted = await db.select().from(cardChecks).where(eq(cardChecks.id, Number(checkId))).limit(1);
   return inserted[0];
 }
 
@@ -123,7 +130,7 @@ export async function getCardChecksByUserId(userId: number, limit: number = 50, 
     .select()
     .from(cardChecks)
     .where(eq(cardChecks.userId, userId))
-    .orderBy((t) => t.createdAt)
+    .orderBy(sql`createdAt DESC`)
     .limit(limit)
     .offset(offset);
 }
@@ -151,10 +158,8 @@ export async function updateUserStats(userId: number, stats: Partial<InsertUserS
 
   const existing = await getUserStats(userId);
   if (!existing) {
-    await db.insert(userStats).values({ userId, ...stats });
+    await db.insert(userStats).values({ userId, ...stats } as any);
   } else {
-    await db.update(userStats).set(stats).where(eq(userStats.userId, userId));
+    await db.update(userStats).set({ ...stats, updatedAt: new Date() }).where(eq(userStats.userId, userId));
   }
 }
-
-
