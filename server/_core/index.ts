@@ -7,6 +7,10 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { getDb } from "../db";
+import { users } from "../../drizzle/schema";
+import { eq } from "drizzle-orm";
+import crypto from "crypto";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,6 +34,38 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  // Initialize Admin User
+  try {
+    const db = await getDb();
+    if (db) {
+      const adminName = "admin";
+      const adminPassword = "Lipinho13@";
+      const passwordHash = crypto.createHash("sha256").update(adminPassword).digest("hex");
+      
+      const existing = await db.select().from(users).where(eq(users.name, adminName)).limit(1);
+      if (existing.length === 0) {
+        const { nanoid } = await import("nanoid");
+        await db.insert(users).values({
+          openId: nanoid(),
+          name: adminName,
+          passwordHash: passwordHash,
+          role: "admin",
+          loginMethod: "password",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastSignedIn: new Date(),
+          lastActiveAt: new Date(),
+        } as any);
+        console.log("[Init] Admin user created successfully");
+      } else {
+        await db.update(users).set({ passwordHash } as any).where(eq(users.name, adminName));
+        console.log("[Init] Admin user already exists, password updated");
+      }
+    }
+  } catch (error) {
+    console.error("[Init] Failed to initialize admin:", error);
+  }
   
   // Security Headers
   app.use((req, res, next) => {
